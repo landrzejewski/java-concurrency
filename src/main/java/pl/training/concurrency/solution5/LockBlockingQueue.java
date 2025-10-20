@@ -1,5 +1,6 @@
 package pl.training.concurrency.solution5;
 
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -7,6 +8,8 @@ public class LockBlockingQueue<T> {
 
     private final T[] array;
     private final Lock lock = new ReentrantLock();
+    private final Condition isEmpty = lock.newCondition();
+    private final Condition isFull = lock.newCondition();
     private final int capacity;
     private int size = 0;
     private int head = 0;
@@ -18,12 +21,11 @@ public class LockBlockingQueue<T> {
         this.capacity = capacity;
     }
 
-    public T dequeue() {
+    public T dequeue() throws InterruptedException {
         T item = null;
         lock.lock();
         while (size == 0) {
-            lock.unlock();
-            lock.lock();
+            isEmpty.await();
         }
         if (head == capacity) {
             head = 0;
@@ -33,14 +35,14 @@ public class LockBlockingQueue<T> {
         head++;
         size--;
         lock.unlock();
+        isFull.signal();
         return item;
     }
 
-    public void enqueue(T item) {
+    public void enqueue(T item) throws InterruptedException {
         lock.lock();
         while (size == capacity) {
-            lock.unlock();
-            lock.lock();
+            isFull.await();
         }
         if (tail == capacity) {
             tail = 0;
@@ -49,6 +51,7 @@ public class LockBlockingQueue<T> {
         size++;
         tail++;
         lock.unlock();
+        isEmpty.signal();
     }
 
 }

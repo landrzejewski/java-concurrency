@@ -81,6 +81,11 @@ public class Application {
         Runtime.getRuntime()
                 .addShutdownHook(new Thread(compositeDisposable::dispose));
 
+        ObservableReader.from(System.in)
+                .debounce(5, TimeUnit.SECONDS)
+                .flatMap(text -> Observable.zip(sendGithubQuery(text), sendWikipediaQuery(text), this::combineResults))
+                .subscribe(System.out::println, System.out::println, () -> System.out.println("Completed"));
+
        /* var stream = githubService.getRepositories("java")
                 .flatMap(Observable::fromIterable)
                 .map(Repository::getName)
@@ -89,20 +94,20 @@ public class Application {
                 .sorted()
                 .distinct();*/
 
-
-        Integer a = null;
-        var test = Optional.ofNullable(a)
-                .flatMap(integer -> Optional.of(integer * 2));
-
-        System.out.println(test);
-
-
-        var stream = ObservableReader.from(System.in)
-                .debounce(5, TimeUnit.SECONDS)
-                .flatMap(this::sendQueries)
-                .flatMap(Observable::fromIterable)
-                .map(String::toLowerCase)
-                .filter(hasLength(16));
+//
+//        Integer a = null;
+//        var test = Optional.ofNullable(a)
+//                .flatMap(integer -> Optional.of(integer * 2));
+//
+//        System.out.println(test);
+//
+//
+//        var stream = ObservableReader.from(System.in)
+//                .debounce(5, TimeUnit.SECONDS)
+//                .flatMap(this::sendQueries)
+//                .flatMap(Observable::fromIterable)
+//                .map(String::toLowerCase)
+//                .filter(hasLength(16));
 
     //    var disposable = stream.subscribe(System.out::println, System.out::println, () -> System.out.println("Completed"));
       //  compositeDisposable.add(disposable);
