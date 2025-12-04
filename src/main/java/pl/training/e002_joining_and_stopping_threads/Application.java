@@ -1,6 +1,6 @@
 package pl.training.e002_joining_and_stopping_threads;
 
-import static pl.training.common.Printing.printWithThreadName;
+import static pl.training.common.Utils.printWithThreadName;
 
 public class Application {
 
