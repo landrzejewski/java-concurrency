@@ -1,4 +1,4 @@
-package pl.training.e007_fork_join;
+package pl.training.e007_fork_join.action;
 
 public class Product {
 
@@ -10,6 +10,10 @@ public class Product {
 
     public void increasePrice(double changeValue) {
         price += changeValue;
+    }
+
+    public void setPrice(double price) {
+        this.price = price;
     }
 
     public double getPrice() {
