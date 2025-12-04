@@ -1,4 +1,4 @@
-package pl.training.ex005_tools;
+package pl.training.e005_util_concurrent_tools;
 
 import static pl.training.common.Utils.printWithThreadName;
 import static pl.training.common.Utils.silentSleep;

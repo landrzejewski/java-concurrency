@@ -1,34 +1,29 @@
-package pl.training.ex005_tools;
+package pl.training.e005_util_concurrent_tools;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.Exchanger;
 
-public class Producer implements Runnable {
-
-    private static final int MAX_BUFFER_SIZE = 10;
+public class Consumer implements Runnable {
 
     private List<String> buffer = new ArrayList<>();
     private final Exchanger<List<String>> exchanger;
 
-    public Producer(Exchanger<List<String>> exchanger) {
+    public Consumer(Exchanger<List<String>> exchanger) {
         this.exchanger = exchanger;
     }
 
     @Override
     public void run() {
         while (true) {
-            System.out.println("Producer buffer size: " + buffer.size());
-            for (int i = 0; i < MAX_BUFFER_SIZE; i++) {
-                buffer.add(UUID.randomUUID().toString());
-                System.out.println("Producing...");
-            }
             try {
                 buffer = exchanger.exchange(buffer);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            System.out.println("Consumer buffer size: " + buffer.size());
+            buffer.forEach(System.out::println);
+            buffer.clear();
         }
     }
 

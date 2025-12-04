@@ -1,4 +1,4 @@
-package pl.training.ex005_tools;
+package pl.training.e005_util_concurrent_tools;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
