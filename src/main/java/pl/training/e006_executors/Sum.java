@@ -2,6 +2,8 @@ package pl.training.e006_executors;
 
 import java.util.concurrent.Callable;
 
+import static pl.training.common.Utils.silentSleep;
+
 public class Sum implements Callable<Integer> {
 
     private static final int SLEEP_TIME = 3_000;
@@ -16,11 +18,7 @@ public class Sum implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        try {
-            Thread.sleep(SLEEP_TIME);
-        } catch (InterruptedException e) {
-            System.out.println("Stopping sum thread");
-        }
+        silentSleep(SLEEP_TIME);
         return firstValue + secondValue;
     }
 

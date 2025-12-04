@@ -8,25 +8,34 @@ public class Application {
     private static final int THREADS_COUNT = 2;
     private static final int WAIT_TIME = 2;
 
-    public static void main(String[] args) throws InterruptedException, ExecutionException {
-        Sum sum = new Sum(1, 5);
-        ExecutorService executorService = Executors.newFixedThreadPool(THREADS_COUNT);
-        Future<Integer> futureTask = executorService.submit(sum);
+    void main() throws InterruptedException, ExecutionException {
+        var sum = new Sum(1, 5);
+        var executorService = Executors.newFixedThreadPool(THREADS_COUNT);
+        /*var futureTask = executorService.submit(sum);
+
         executorService.shutdown();
         executorService.awaitTermination(WAIT_TIME, TimeUnit.SECONDS);
-        System.out.printf("Result: %d", futureTask.get());
+        System.out.printf("Result: %d\n", futureTask.get());
 
-        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(THREADS_COUNT);
+        var scheduledExecutorService = Executors.newScheduledThreadPool(THREADS_COUNT);
         scheduledExecutorService.schedule(new Multiplication(2, 5), WAIT_TIME, TimeUnit.SECONDS);
         scheduledExecutorService.shutdown();
 
-        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(THREADS_COUNT);
-        List<Future<Integer>> results = threadPoolExecutor.invokeAll(List.of(new Multiplication(2, 5), new Multiplication(2, 6)));
+        var threadPoolExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(THREADS_COUNT);
+        var results = threadPoolExecutor.invokeAll(List.of(new Multiplication(2, 5), new Multiplication(2, 6)));
         //threadPoolExecutor.shutdown();
-        threadPoolExecutor.awaitTermination(10, TimeUnit.SECONDS);
+        var isSuccess = threadPoolExecutor.awaitTermination(10, TimeUnit.SECONDS);
         results.stream()
                 .map(Future::isDone)
-                .forEach(System.out::println);
+                .forEach(System.out::println);*/
+
+        CompletionService<String> completionService = new ExecutorCompletionService<>(executorService);
+        var printer = new Printer(completionService);
+        executorService.execute(printer);
+        completionService.submit(new ReportGenerator());
+        completionService.submit(new ReportGenerator());
+        completionService.submit(new ReportGenerator());
+        executorService.shutdown();
     }
 
 }
