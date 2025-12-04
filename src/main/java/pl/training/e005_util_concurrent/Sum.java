@@ -1,4 +1,4 @@
-package pl.training.e005_util_concurrent_tools;
+package pl.training.e005_util_concurrent;
 
 import java.util.concurrent.Callable;
 

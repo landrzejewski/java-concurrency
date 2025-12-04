@@ -1,0 +1,37 @@
+Zadanie 1
+Zaprojektuj mechanizm / algorytm synchronizujący korzystanie z łazienki w firmie przy założeniu następujących warunków:
+- nie można doprowadzić do tego, że do łazienki wejdzie kobieta i mężczyzna
+- jednocześnie w łazience nie mogą przebywać więcej niż 3 osoby
+
+Zadanie 2
+Napisz kod symulujący fabrykowanie molekuły H20
+- każdy atom produkowany jest przez osobny wątek
+- program powinien zaczekać, aż możliwe będzie stworzenie pełnej molekuły, zanim rozpocznie budowanie kolejnej
+- wątki mogą być tworzone w dowolnej kolejności, mogą też produkować atomy z dowolną prędkością
+
+Zadanie 3
+Zakład fryzjerski posiada N krzeseł dla klientów i jednego fryzjera
+- jeśli nie ma klientów, fryzjer powinien zostać uśpiony
+- jeśli klient wejdzie do salonu i są wolne krzesła klient siada i czeka na swoją kolej
+- jeśli klient wejdzie do salonu i nie ma wolnych krzeseł rezygnuje (opuszcza sklep)
+- jeśli fryzjer śpi klient go budzi / aktywuje
+Napisz program koordynujący opisane interakcje
+
+Zadanie 4
+Wyobraź sobie, że masz pojemnik, który wypełnia się tokenami z szybkością 1 na sekundę.
+Pojemnik może pomieścić maksymalnie N tokenów. Zaimplementuj klasę bezpieczną wielowątkowo, która umożliwia
+wątkom działanie gdy dostępny jest token. Jeśli żaden token nie jest dostępny, wątki żądające tokenu powinny
+zostać zablokowane. Klasa powinna udostępniać metodę o nazwie getToken, która skutkuje blokadą wątku do
+czasu dostępności tokenu
+
+Zadanie 5
+Zaimplementuj kolejkę blokującą używając:
+- blokad niejawnych (monitora)
+- blokad jawnych
+- semafora
+
+Zadanie 6
+Wyobraź sobie, że pod koniec konferencji politycznej partia X i partia Y próbują opuścić miejsce i jednocześnie
+zamawiają przejazdy taxi. Aby upewnić się, że podczas jazdy nie wybuchnie walka, należy opracować algorytm,
+zgodnie z którym przejazd jest możliwy, gdy w samochodzie będą tylko politycy jednej partii
+lub dokładnie po dwóch z partii X i partii Y
