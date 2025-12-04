@@ -4,6 +4,7 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
 public class Application {
@@ -76,14 +77,20 @@ public class Application {
         */
 
         // Phaser
-        var phaser = new Phaser(3);
+       /* var phaser = new Phaser(3);
         var path = Paths.get(".");
         Predicate<File> filePredicate = file -> file.length() > 1024;
         List.of(
                 new Search(path, "java", filePredicate, phaser),
                 new Search(path, "txt", filePredicate, phaser),
                 new Search(path, "class", filePredicate, phaser)
-        ).forEach(searchFiles -> new Thread(searchFiles).start());
+        ).forEach(searchFiles -> new Thread(searchFiles).start());*/
+
+        // Atomic types
+        /*var value = new AtomicLong();
+        value.getAndDecrement();*/
+
+
     }
 
 }
