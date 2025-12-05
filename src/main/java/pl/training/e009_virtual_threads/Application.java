@@ -1,30 +1,23 @@
 package pl.training.e009_virtual_threads;
 
-import java.time.Duration;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static pl.training.common.Utils.printWithThreadName;
 
 public class Application {
 
-    void main() {
-        /*for (int i = 0; i < 1_000_000_000; i++) {
-            new Thread(() -> {
-                try {
-                    Thread.sleep(Duration.ofSeconds(100L));
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }).start();
-        }*/
+    public static void main(String[] args) {
+        Thread.ofVirtual()
+                .name("VThread")
+                .start(() -> printWithThreadName("Task"));
 
-        for (int i = 0; i < 1_000_000_000; i++) {
-            Thread.ofVirtual()
-                    .name("V" + i)
-                    .start(() -> {
-                        try {
-                            Thread.sleep(Duration.ofSeconds(100L));
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
+        var threadFactory = Thread.ofVirtual().factory();
+        // try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (ExecutorService executor = Executors.newThreadPerTaskExecutor(threadFactory)) {
+            for (int i = 0; i < 1_000; i++) {
+                executor.submit(() -> System.out.format("Is virtual: %s, %d\n", Thread.currentThread().isVirtual(), Thread.currentThread().getId()));
+            }
         }
     }
 
