@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit;
 
 public class CompletableFutureBasics {
     
-    void main() {
+    public static void main(String[] args) {
         System.out.println("=== Przykład 1: Proste użycie ===");
         simpleExample();
         
@@ -38,16 +38,19 @@ public class CompletableFutureBasics {
     static void chainingExample() {
         CompletableFuture<String> future = CompletableFuture
             .supplyAsync(() -> {
-                System.out.println("Krok 1: Pobieram dane z bazy (wątek: " + Thread.currentThread().getName() + ")");
+                System.out.println("Krok 1: Pobieram dane z bazy (wątek: " +
+                    Thread.currentThread().getName() + ")");
                 sleep(1000);
                 return "Dane użytkownika";
             })
             .thenApply(data -> {
-                System.out.println("Krok 2: Przetwarzam dane (wątek: " + Thread.currentThread().getName() + ")");
+                System.out.println("Krok 2: Przetwarzam dane (wątek: " +
+                    Thread.currentThread().getName() + ")");
                 return data.toUpperCase();
             })
             .thenApply(processed -> {
-                System.out.println("Krok 3: Dodaję prefix (wątek: " + Thread.currentThread().getName() + ")");
+                System.out.println("Krok 3: Dodaję prefix (wątek: " +
+                    Thread.currentThread().getName() + ")");
                 return "PROCESSED: " + processed;
             });
         
