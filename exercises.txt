@@ -10,7 +10,7 @@ Napisz kod symulujący fabrykowanie molekuły H20
 - wątki mogą być tworzone w dowolnej kolejności, mogą też produkować atomy z dowolną prędkością
 
 Zadanie 3
-Zakład fryzjerski posiada N krzeseł dla klientów i jednego fryzjera
+Zakład fryzjerski posiada N krzeseł dla klientów i jednego fryzjera (godziny)
 - jeśli nie ma klientów, fryzjer powinien zostać uśpiony
 - jeśli klient wejdzie do salonu i są wolne krzesła klient siada i czeka na swoją kolej
 - jeśli klient wejdzie do salonu i nie ma wolnych krzeseł rezygnuje (opuszcza sklep)
