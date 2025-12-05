@@ -17,12 +17,6 @@ public class Application {
         female2.start();
         male3.start();
         male4.start();
-        female1.join();
-        male1.join();
-        male2.join();
-        male3.join();
-        male4.join();
-        female2.join();
     }
 
     interface Task {

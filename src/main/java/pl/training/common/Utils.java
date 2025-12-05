@@ -14,4 +14,14 @@ public class Utils {
         }
     }
 
+    public static Thread asyncRun(Task task) {
+        return new Thread(() -> {
+            try {
+                task.run();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
 }
