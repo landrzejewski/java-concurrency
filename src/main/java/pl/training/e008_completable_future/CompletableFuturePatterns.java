@@ -1,13 +1,10 @@
 package pl.training.e008_completable_future;
 
 import java.util.concurrent.*;
-import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-public class AdvancedCompletableFuturePatterns {
+public class CompletableFuturePatterns {
     
     public static void main(String[] args) {
         System.out.println("=== Wzorzec 1: Timeout ===");

@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit;
 
 public class CompletableFutureBasics {
     
-    public static void main(String[] args) {
+    void main() {
         System.out.println("=== Przykład 1: Proste użycie ===");
         simpleExample();
         

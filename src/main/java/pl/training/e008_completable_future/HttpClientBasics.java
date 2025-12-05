@@ -1,4 +1,4 @@
-package pl.training.e008_completable_future.http;
+package pl.training.e008_completable_future;
 
 import java.net.URI;
 import java.net.http.HttpClient;
