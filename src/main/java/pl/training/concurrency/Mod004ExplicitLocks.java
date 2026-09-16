@@ -9,20 +9,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.StampedLock;
 
-/*
-When NOT to use explicit locks
-
-- For a thread-safe map: prefer ConcurrentHashMap (Mod005). The library already does fine-grained locking internally
-  and exposes atomic compound operations (compute, merge, computeIfAbsent).
-- For coordination of independent counters: prefer LongAdder / AtomicInteger (Mod002) — no lock at all.
-- For producer–consumer: prefer a BlockingQueue (Mod005). The queue subsumes the locking and the condition signalling.
-- For coordinating a fan-out of tasks: prefer StructuredTaskScope (Mod012). It makes cancellation and aggregation
-  explicit instead of hidden in a lock protocol.
-
-A good rule of thumb: reach for an explicit lock only when no higher-level abstraction in java.util.concurrent covers
-the case. The library version is almost always faster and easier to reason about.
-*/
-
 final class BoundedQueueWithConditions<T> {
     private final Deque<T> items = new ArrayDeque<>();
     private final int capacity;
