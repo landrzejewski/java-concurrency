@@ -72,3 +72,28 @@ Implement `Mailbox<T>` with capacity 1 and blocking `put(T)` / `take()` using on
 - Add `Optional<T> take(long timeoutMillis)` that returns `Optional.empty()` when nothing arrives in time (account for spurious wakeups — recompute the remaining time)
 - Run 2 producers and 3 consumers exchanging 1 000 messages; every message must be received exactly once
 - Change `while` to `if` in one of the methods and produce a run (or a reasoning in a comment) where an invariant is broken
+
+---
+
+## Mod004 — Explicit Locks
+
+### Exercise 4.1 — Read-mostly cache with ReentrantReadWriteLock
+Implement `Cache<K, V>` with `get(K)`, `put(K, V)` and `getOrLoad(K, Function<K, V> loader)` on top of a `HashMap` guarded by a `ReentrantReadWriteLock`.
+- `get` takes only the read lock; `put` takes the write lock; always use the `lock(); try { … } finally { unlock(); }` shape
+- `getOrLoad`: take the read lock; on a miss release it, take the write lock, re-check, load and insert, then **downgrade** to the read lock before releasing the write lock, and return while holding the read lock
+- Explain in a comment why upgrading (read → write while holding the read lock) is not possible with this lock
+- Measure throughput with 8 readers and 1 writer and compare with a version that uses a plain `ReentrantLock` for everything
+
+### Exercise 4.2 — Deadlock-free resource pair with tryLock
+Two workers each need two `ReentrantLock`s (`A` and `B`) but acquire them in opposite order.
+- First show the deadlock with plain `lock()`
+- Fix it with `tryLock(timeout)`: if the second lock cannot be acquired, release the first, back off for a random short time and retry; count the retries and print them
+- Second variant: use `lockInterruptibly()` and a supervisor thread that detects that a worker has been waiting longer than 1 second and interrupts it; the worker must release everything it holds and report that it was cancelled
+- Compare in a comment with what happens in the same scenario using `synchronized` (Mod003 §7)
+
+### Exercise 4.3 — Turnstile with two Conditions
+Implement `Turnstile` that allows at most `N` threads inside a section at the same time, using one `ReentrantLock` and two `Condition`s.
+- `enter()` blocks while `N` threads are inside (`notFull` condition); `leave()` decrements the counter and signals
+- `awaitEmpty()` blocks until nobody is inside (`empty` condition) — used by a "maintenance" thread
+- Use `signal()` instead of `signalAll()` where it is safe and explain why in a comment
+- Bonus: expose `currentCount()` implemented with a `StampedLock` optimistic read (`tryOptimisticRead` → copy → `validate` → fallback to `readLock`)

@@ -236,6 +236,7 @@ public final class Mod004ExplicitLocks {
         } finally {
             busy.unlock();
         }
+        System.out.println("  tryLock(500ms) -> " + busy + " (fallback path)");
     }
 
     /*
