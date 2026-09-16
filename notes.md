@@ -21,3 +21,54 @@ Start `N` worker threads with random durations (100–2000 ms) and wait for them
 - Print which workers finished in time and which are still running when the deadline passes
 - Register a JVM shutdown hook that prints the names of all worker threads that are still alive at shutdown
 - Make the stragglers daemon threads so the JVM can exit; then make them user threads and explain what changes
+
+---
+
+## Mod002 — Memory Model and Atomics
+
+### Exercise 2.1 — Visibility bug hunt
+You are given a `Worker` with a plain `boolean running = true` field, a `run()` loop `while (running) { count++; }` and a `stop()` method that sets `running = false`.
+- Write a test that starts the worker, sleeps 200 ms, calls `stop()` and joins with a 2-second timeout; report whether the worker stopped
+- Fix the visibility problem with `volatile` and show that the worker now always stops
+- Show that `count++` is still not atomic even with `volatile int count`: run 8 threads incrementing it 100 000 times each and print the lost updates
+- Explain (in a comment) why replacing `volatile` with a `synchronized` getter/setter would also fix visibility, and which of the two fixes would additionally fix `count++`
+
+### Exercise 2.2 — Lock-free statistics
+Implement a thread-safe `Stats` class with `record(int value)` and `count()`, `sum()`, `min()`, `max()` — without using `synchronized` or any `Lock`.
+- Use `AtomicLong`/`AtomicInteger` for `count` and `sum`
+- Implement `min` and `max` with a hand-written CAS loop (`get` → compute candidate → `compareAndSet`, retry on failure); count the number of CAS retries in a separate counter
+- Then reimplement `min`/`max` with `accumulateAndGet(value, Math::min)` and compare the code
+- Verify with 8 threads × 100 000 random values that `count`, `sum`, `min`, `max` equal the values computed sequentially from the same input
+
+### Exercise 2.3 — Immutable config snapshot
+Implement `ConfigHolder` that publishes an immutable `Config` record (`String host`, `int port`, `List<String> features`) to many reader threads.
+- Store the current config in an `AtomicReference<Config>`
+- Provide `update(UnaryOperator<Config> change)` that applies the change atomically even when several threads update concurrently (no lost updates)
+- Provide `current()` for readers; readers must never observe a partially constructed or "torn" config
+- Run 4 updater threads (each adds its own feature 1 000 times, e.g. `"f1-<i>"`) and 4 reader threads; at the end verify that all 4 000 features are present
+- In a comment explain which JMM rule guarantees that a reader sees a fully constructed `Config` (final-field freeze) and which rule guarantees it sees the *latest* reference
+
+---
+
+## Mod003 — Intrinsic Locks
+
+### Exercise 3.1 — Bank transfers with fine-grained locks
+Implement `Account` (`id`, `balance`) and `Bank.transfer(Account from, Account to, long amount)` guarded by intrinsic locks.
+- Each account has its own private final lock object; do not lock on the `Account` instance itself and do not use one global lock
+- `transfer` must lock both accounts; order the lock acquisition by account `id` so that two opposite transfers cannot deadlock
+- Run 10 threads doing 10 000 random transfers between 5 accounts; the total sum of all balances must be unchanged at the end
+- Remove the lock ordering and demonstrate the deadlock (use a thread dump or `ThreadMXBean.findDeadlockedThreads()` to detect it)
+
+### Exercise 3.2 — Reentrancy and the private-lock idiom
+Write a `Counters` class with `synchronized void increment(String name)` and `synchronized void incrementAll()` that calls `increment` for every known name.
+- Demonstrate that `incrementAll` does not deadlock on its own monitor (reentrancy) and print `Thread.holdsLock(this)` from both methods
+- Write a "hostile" client that does `synchronized (counters) { Thread.sleep(5000); }` and show that all other threads are blocked for 5 seconds
+- Rewrite `Counters` to use a private final lock object instead of `this` and show that the hostile client can no longer block the object
+- Explain in a comment why exposing the lock (public monitor) is a design problem
+
+### Exercise 3.3 — One-slot mailbox with wait/notify
+Implement `Mailbox<T>` with capacity 1 and blocking `put(T)` / `take()` using only `synchronized`, `wait()` and `notifyAll()`.
+- `put` blocks while the slot is full, `take` blocks while it is empty; both use a `while` loop around `wait()`
+- Add `Optional<T> take(long timeoutMillis)` that returns `Optional.empty()` when nothing arrives in time (account for spurious wakeups — recompute the remaining time)
+- Run 2 producers and 3 consumers exchanging 1 000 messages; every message must be received exactly once
+- Change `while` to `if` in one of the methods and produce a run (or a reasoning in a comment) where an invariant is broken
