@@ -173,3 +173,26 @@ Build a `ThreadPoolExecutor` by hand and observe its behaviour.
 - Replace the handler with `AbortPolicy` and count the `RejectedExecutionException`s
 - Shut down gracefully: `shutdown()` → `awaitTermination(2 s)` → `shutdownNow()`; print how many tasks were never started
 - Add a `ScheduledExecutorService` heartbeat with `scheduleAtFixedRate` every 500 ms; make the 3rd run throw, observe that the heartbeat stops, then fix it so a failing run does not kill the schedule
+
+---
+
+## Mod008 — Fork/Join
+
+### Exercise 8.1 — Parallel max with RecursiveTask
+Find the maximum of a `long[]` of 50 000 000 random elements with the Fork/Join framework.
+- Implement `MaxTask extends RecursiveTask<Long>` with a threshold; below it compute sequentially, above it split in half using `left.fork(); long r = right.compute(); long l = left.join();`
+- Compare the time with a plain sequential loop and with `Arrays.stream(array).parallel().max()` (warm up the JIT first)
+- Print `ForkJoinPool.commonPool().getParallelism()` and explain in a comment which threads (including the caller) take part in the computation
+
+### Exercise 8.2 — In-place normalization with RecursiveAction
+Normalize a `double[]` in place (divide each element by the global maximum) using `RecursiveAction`.
+- Step 1 (max) may reuse Exercise 8.1; step 2 updates the array in place using `invokeAll(left, right)`
+- Explain in a comment why the two tasks do not need any synchronization even though they write to the same array
+- Sweep the threshold (100, 1 000, 10 000, 100 000, 1 000 000) and print the time for each; explain the shape of the results
+
+### Exercise 8.3 — Directory size on a dedicated pool
+Compute the total size in bytes of a directory tree using `RecursiveTask<Long>`.
+- Fork one subtask per subdirectory and sum the file sizes of the current directory in the same task
+- Run the task on a dedicated `new ForkJoinPool(n)` instead of the common pool and explain in a comment why blocking I/O should not run on the common pool
+- Handle unreadable directories (`AccessDeniedException`) without failing the whole computation
+- Compare the result and the time with `Files.walk(...).mapToLong(...).sum()`
