@@ -122,3 +122,28 @@ Build a pipeline: `Reader` → `Parser` → `Writer`, where stages are threads c
 - Parser → Writer: `PriorityBlockingQueue` so that messages marked `urgent` are written before others
 - Shut the pipeline down with a poison-pill message that is propagated through every stage; all threads must terminate and no message may be lost
 - Explain in a comment which of the three `BlockingQueue` method styles (throw / special value / block) each stage uses and why
+
+---
+
+## Mod006 — Synchronization Utilities
+
+### Exercise 6.1 — Connection pool with Semaphore
+Implement `ConnectionPool` with at most `N` open `Connection` objects (fake objects with an `id`).
+- `Optional<Connection> acquire(Duration timeout)` uses `tryAcquire(timeout)` and returns `Optional.empty()` on timeout
+- `release(Connection)` returns the connection to the pool; it must work when called from a thread different from the one that acquired it
+- Keep the free connections in a thread-safe collection; the semaphore only counts permits
+- Run 20 workers competing for 3 connections and print how many acquisitions succeeded, timed out, and the maximum number of connections in use at any moment (must never exceed `N`)
+
+### Exercise 6.2 — Parallel benchmark harness with CountDownLatch
+Write `runConcurrently(int threads, Runnable task)` that starts all threads at exactly the same moment and measures the wall time of the whole batch.
+- Use a start-gun `CountDownLatch(1)` so that every thread is created and ready before any of them starts the task
+- Use a finish `CountDownLatch(threads)` and `await(timeout)`; if the batch does not finish within the timeout, report which threads are still running
+- Return the elapsed time and use the harness to compare a `synchronized` counter with an `AtomicLong` counter under 16 threads
+- Explain in a comment why a latch cannot be reused for a second batch and what you would use instead
+
+### Exercise 6.3 — Iterative simulation with CyclicBarrier and Phaser
+Simulate `R` rounds of a computation over an `int[]` array split into `K` slices, one thread per slice; each round every cell becomes the average of itself and its neighbours (read the previous round, write the next one).
+- Use a `CyclicBarrier(K, barrierAction)` where the barrier action swaps the buffers and prints the round number and the checksum of the array
+- Handle `BrokenBarrierException`: make one worker throw in round 3 and show how the others react
+- Phaser variant: a worker whose slice becomes "stable" (no change in a round) calls `arriveAndDeregister()` and leaves; the simulation must continue with the remaining parties and terminate via `onAdvance` when `R` rounds are done
+- Bonus: replace the two buffers with a single `Exchanger<int[]>` between a producer and a consumer thread (double buffering)
