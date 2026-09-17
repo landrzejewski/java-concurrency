@@ -38,12 +38,14 @@ public final class Mod009CompletableFuture {
     static void asyncPipeline() {
         System.out.println("[Section 2] async pipeline");
 
-        var f = CompletableFuture.supplyAsync(() -> {
-            sleep(50);
-            return "data";
-        }).thenApply(s -> s.toUpperCase());
-
-        System.out.println("  result = " + f.join());
+        var result = CompletableFuture
+                .supplyAsync(() -> {
+                    sleep(50);
+                    return "data";
+                })
+                .thenApply(String::toUpperCase)
+                .join();
+        System.out.println("  result = " + result);
     }
 
     /*

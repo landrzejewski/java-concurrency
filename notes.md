@@ -224,3 +224,13 @@ Fetch `profile`, `orders` and `recommendations` concurrently and render a dashbo
 - Take a started branch — use a `CountDownLatch` so it has provably begun — call `cancel(true)` on it, and show that it is **not** interrupted and that its siblings are unaffected
 - Print the wall time and compare it with the sum of the branch latencies
 - **Bonus:** sketch in a comment how the same three points look with `StructuredTaskScope` (Mod012 §3, §8)
+
+Extra
+
+Three workers perform three rounds of work together. Nobody may begin round k+1 before all three have finished round k.
+
+- Create one Phaser with 3 registered parties and start three plain threads with Thread.ofPlatform().name("worker-" + i).start(...)
+- Each worker loops 3 times: sleep a random 100–300 ms, print worker-i finished round k (phase = <phaser.getPhase()>), then call arriveAndAwaitAdvance()
+- The main thread is not registered — it only join()s the three threads. Explain in a comment what would change if you created the phaser with new Phaser(4) and forgot to arrive from main
+- Check in the output that all three round 1 lines appear before any round 2 line, and that getPhase() returns 0, 1, 2 in successive rounds
+- Explain in a comment why arriveAndAwaitAdvance() can be called again in the next round, while a CountDownLatch would have to be recreated for every round
