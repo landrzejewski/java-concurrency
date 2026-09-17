@@ -32,7 +32,33 @@ public final class Ex83DirectorySize {
         DirSizeTask(Path dir) { this.dir = dir; }
 
         @Override protected Long compute() {
-            return 0L;
+            long size = 0;
+            List<DirSizeTask> subtasks = new ArrayList<>();
+            try (var entries = Files.newDirectoryStream(dir)) {
+                for (Path entry : entries) {
+                    try {
+                        var attrs = Files.readAttributes(entry, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                        if (attrs.isDirectory()) {
+                            var subtask = new DirSizeTask(entry);
+                            subtask.fork();               // one subtask per subdirectory
+                            subtasks.add(subtask);
+                        } else if (attrs.isRegularFile()) {
+                            size += attrs.size();         // files of this directory are summed right here
+                        }
+                    } catch (IOException e) {
+                        UNREADABLE.incrementAndGet();     // a single unreadable entry must not fail the tree
+                    }
+                }
+            } catch (AccessDeniedException e) {
+                UNREADABLE.incrementAndGet();
+                return 0L;
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            for (var subtask : subtasks) {
+                size += subtask.join();
+            }
+            return size;
         }
     }
 

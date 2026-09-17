@@ -33,7 +33,20 @@ public final class Ex81ParallelMax {
         }
 
         @Override protected Long compute() {
-           return 0L;
+            if (to - from <= threshold) {
+                long max = Long.MIN_VALUE;
+                for (int i = from; i < to; i++) {
+                    max = Math.max(max, data[i]);
+                }
+                return max;
+            }
+            int mid = (from + to) >>> 1;
+            var left = new MaxTask(data, from, mid, threshold);
+            var right = new MaxTask(data, mid, to, threshold);
+            left.fork();                     // hand the left half to the pool (our own deque, LIFO for us)
+            long rightMax = right.compute(); // do the right half ourselves — no idle waiting
+            long leftMax = left.join();      // by now it is either done or stolen; join runs it if still queued
+            return Math.max(leftMax, rightMax);
         }
     }
 
@@ -42,6 +55,14 @@ public final class Ex81ParallelMax {
         for (int i = 0; i < data.length; i++) {
             data[i] = ThreadLocalRandom.current().nextLong();
         }
+        int parallelism = ForkJoinPool.commonPool().getParallelism();
+        int threshold = Math.max(SIZE / (parallelism * 4), 1_000);
+        System.out.printf(Locale.ROOT, "common pool parallelism=%d, threshold=%d%n", parallelism, threshold);
+
+        long sequential = measure("sequential loop", () -> sequentialMax(data));
+        long forkJoin = measure("fork/join", () -> ForkJoinPool.commonPool().invoke(new MaxTask(data, 0, data.length, threshold)));
+        long stream = measure("parallel stream", () -> Arrays.stream(data).parallel().max().orElseThrow());
+        System.out.println(sequential == forkJoin && forkJoin == stream ? "all three agree" : "MISMATCH");
 
         // Which threads take part: the common pool's workers (parallelism = cores - 1 by default) plus the
         // thread that calls invoke()/join() — the caller does not idle, it helps run queued tasks. That is why

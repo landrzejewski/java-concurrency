@@ -32,7 +32,19 @@ public final class Ex82NormalizeAction {
         }
 
         @Override protected Double compute() {
-            return 0.0;
+            if (to - from <= threshold) {
+                double max = Double.NEGATIVE_INFINITY;
+                for (int i = from; i < to; i++) {
+                    max = Math.max(max, data[i]);
+                }
+                return max;
+            }
+            int mid = (from + to) >>> 1;
+            var left = new MaxTask(data, from, mid, threshold);
+            var right = new MaxTask(data, mid, to, threshold);
+            left.fork();
+            double rightMax = right.compute();
+            return Math.max(left.join(), rightMax);
         }
     }
 
@@ -53,7 +65,15 @@ public final class Ex82NormalizeAction {
         }
 
         @Override protected void compute() {
-
+            if (to - from <= threshold) {
+                for (int i = from; i < to; i++) {
+                    data[i] /= max;
+                }
+                return;
+            }
+            int mid = (from + to) >>> 1;
+            invokeAll(new NormalizeAction(data, from, mid, max, threshold),
+                      new NormalizeAction(data, mid, to, max, threshold));
         }
         // No synchronization needed: the two halves write to disjoint index ranges, so there is no data race,
         // and invokeAll/join establish happens-before from each subtask's writes to the parent's return —

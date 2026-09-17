@@ -196,3 +196,31 @@ Compute the total size in bytes of a directory tree using `RecursiveTask<Long>`.
 - Run the task on a dedicated `new ForkJoinPool(n)` instead of the common pool and explain in a comment why blocking I/O should not run on the common pool
 - Handle unreadable directories (`AccessDeniedException`) without failing the whole computation
 - Compare the result and the time with `Files.walk(...).mapToLong(...).sum()`
+
+---
+
+## Mod009 — CompletableFuture
+
+### Exercise 9.1 — Order pipeline with thenCompose and thenCombine
+Build an asynchronous "place order" pipeline over four fake services: `findUser(id)`, `loadCart(user)`, `price(cart)` and `loadShippingQuote(user)`, each of which sleeps 40–120 ms and returns a value.
+- Chain `findUser` → `loadCart` → `price` with `thenCompose`; first write the same chain with `thenApply` and show that the result type collapses into `CompletableFuture<CompletableFuture<…>>` and needs two `join()`s
+- Run `loadShippingQuote` in parallel with the cart branch and merge both with `thenCombine` into an `Order` record
+- Add a fourth independent call and wait for everything with `allOf(...)`, reading each value afterwards with `f.join()`
+- Measure the wall time of the whole pipeline and show that it is ≈ the longest *path* through the graph, not the sum of all four calls
+- Explain in a comment why `thenApply` is the wrong operator when the function itself returns a future
+
+### Exercise 9.2 — Resilient service client
+Wrap a flaky `Callable<String> remoteCall()` (fails on the first two invocations, then succeeds; latency 20–300 ms) in a client that never lets a failure escape.
+- Recover with `exceptionally`, then with `handle`, then attach a `whenComplete` listener; show that `whenComplete` cannot change the value and that the exception still propagates past it
+- Print what `get()` throws versus what `join()` throws for the same failed future and name both wrapper types
+- Add `orTimeout(100 ms)` to one variant and `completeOnTimeout("cached", 100 ms)` to another; show that in **both** cases the slow task keeps running (print a line from inside the task after the future has already completed)
+- Implement `retry(Supplier<CompletableFuture<String>> op, int attempts, Duration delay)` with exponential backoff on a `ScheduledExecutorService`, without blocking any thread while waiting between attempts
+- Explain in a comment why a timeout on a `CompletableFuture` completes the *future* and not the *work*, and what it takes to cancel the work (Mod012 §7)
+
+### Exercise 9.3 — Dashboard fan-out and the cancellation gap
+Fetch `profile`, `orders` and `recommendations` concurrently and render a dashboard string.
+- Run the fan-out first on the common pool, then on `Executors.newVirtualThreadPerTaskExecutor()` passed explicitly to every `supplyAsync`/`thenApplyAsync`; explain in a comment why blocking I/O must not go to the common pool
+- Make one branch fail and show that the other two still run to completion and still consume their threads (count the finished branches)
+- Take a started branch — use a `CountDownLatch` so it has provably begun — call `cancel(true)` on it, and show that it is **not** interrupted and that its siblings are unaffected
+- Print the wall time and compare it with the sum of the branch latencies
+- **Bonus:** sketch in a comment how the same three points look with `StructuredTaskScope` (Mod012 §3, §8)
