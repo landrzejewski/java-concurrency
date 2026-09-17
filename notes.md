@@ -97,3 +97,28 @@ Implement `Turnstile` that allows at most `N` threads inside a section at the sa
 - `awaitEmpty()` blocks until nobody is inside (`empty` condition) — used by a "maintenance" thread
 - Use `signal()` instead of `signalAll()` where it is safe and explain why in a comment
 - Bonus: expose `currentCount()` implemented with a `StampedLock` optimistic read (`tryOptimisticRead` → copy → `validate` → fallback to `readLock`)
+
+---
+
+## Mod005 — Concurrent Collections
+
+### Exercise 5.1 — Word frequency with ConcurrentHashMap
+Count word frequencies of a large text split across 8 threads.
+- First implement it with `Collections.synchronizedMap(new HashMap<>())` and a `get` + `put` sequence; show that the totals are wrong
+- Reimplement with `ConcurrentHashMap` and `merge(word, 1, Integer::sum)`; the total count must equal the number of words
+- Print the top 10 words using `ConcurrentHashMap` bulk operations (`reduceEntries` / `forEachEntry` with a parallelism threshold) instead of copying the map
+- Show what happens when you try to store a `null` key or value in `ConcurrentHashMap`
+
+### Exercise 5.2 — Event bus with CopyOnWriteArrayList
+Implement `EventBus` with `subscribe(Listener)`, `unsubscribe(Listener)` and `publish(Event)`.
+- A listener must be able to unsubscribe itself (and subscribe a new listener) from inside its own `onEvent` callback while `publish` is iterating
+- Implement the listener list first with `ArrayList` + `synchronized` and demonstrate the `ConcurrentModificationException`
+- Then switch to `CopyOnWriteArrayList` and show that iteration works on a snapshot (a listener subscribed during `publish` does not receive the current event)
+- Run 1 publisher thread and 4 threads that constantly subscribe/unsubscribe; no exception may occur
+
+### Exercise 5.3 — Three-stage pipeline with the BlockingQueue family
+Build a pipeline: `Reader` → `Parser` → `Writer`, where stages are threads connected by queues.
+- Reader → Parser: `ArrayBlockingQueue` of capacity 10; the reader uses `offer(item, 100 ms)` and counts how many times it had to wait (back-pressure report)
+- Parser → Writer: `PriorityBlockingQueue` so that messages marked `urgent` are written before others
+- Shut the pipeline down with a poison-pill message that is propagated through every stage; all threads must terminate and no message may be lost
+- Explain in a comment which of the three `BlockingQueue` method styles (throw / special value / block) each stage uses and why
