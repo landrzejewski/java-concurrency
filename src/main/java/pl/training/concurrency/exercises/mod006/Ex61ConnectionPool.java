@@ -19,21 +19,27 @@ public final class Ex61ConnectionPool {
     record Connection(int id) {}
 
     static final class ConnectionPool {
+        private final Semaphore permits;                                  // counts free connections
         private final ConcurrentLinkedQueue<Connection> free = new ConcurrentLinkedQueue<>(); // holds them
 
         ConnectionPool(int size) {
+            permits = new Semaphore(size, true);
             for (int i = 1; i <= size; i++) {
                 free.add(new Connection(i));
             }
         }
 
         Optional<Connection> acquire(Duration timeout) throws InterruptedException {
+            if (!permits.tryAcquire(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                return Optional.empty();
+            }
             return Optional.of(free.poll()); // never null: a permit guarantees a free connection is queued
         }
 
         /** Semaphores have no owner — any thread may release, which is exactly what a hand-off needs. */
         void release(Connection connection) {
             free.add(connection);   // put it back first ...
+            permits.release();      // ... then publish the permit, so acquire() always finds a connection
         }
     }
 

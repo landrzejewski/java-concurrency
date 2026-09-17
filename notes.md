@@ -147,3 +147,29 @@ Simulate `R` rounds of a computation over an `int[]` array split into `K` slices
 - Handle `BrokenBarrierException`: make one worker throw in round 3 and show how the others react
 - Phaser variant: a worker whose slice becomes "stable" (no change in a round) calls `arriveAndDeregister()` and leaves; the simulation must continue with the remaining parties and terminate via `onAdvance` when `R` rounds are done
 - Bonus: replace the two buffers with a single `Exchanger<int[]>` between a producer and a consumer thread (double buffering)
+
+---
+
+## Mod007 — Executors
+
+### Exercise 7.1 — Image resizer on a fixed thread pool
+Simulate resizing 20 images (`Callable<Result>` sleeping 200–3000 ms; every fifth image throws `IOException`).
+- Use `Executors.newFixedThreadPool(4)` in a try-with-resources block
+- Submit all tasks, keep the `Future`s, then collect results: handle `ExecutionException` (print the cause) and cancel with `cancel(true)` any task that has not finished within 2 seconds of its submission
+- Print a summary: succeeded / failed / cancelled
+- Submit one throwing task with `execute` instead of `submit` and observe where the exception goes; explain in a comment
+
+### Exercise 7.2 — Fastest mirror and completion order
+You have three "mirrors" (`Callable<String>`) with random latency; some of them fail randomly.
+- Use `invokeAny` to fetch a resource from the first mirror that succeeds; handle the case when all of them fail
+- Use `invokeAll` with a timeout of 1 second and print which calls were cancelled
+- Use `ExecutorCompletionService` to download 10 resources and print the results in the order they complete (not the order they were submitted)
+- Measure and compare the total time of the `invokeAll` approach and the `CompletionService` approach when the consumer does 100 ms of work per result
+
+### Exercise 7.3 — Custom ThreadPoolExecutor with back-pressure and graceful shutdown
+Build a `ThreadPoolExecutor` by hand and observe its behaviour.
+- core 2, max 4, `ArrayBlockingQueue(10)`, a `ThreadFactory` naming threads `worker-N`, and `CallerRunsPolicy`
+- Submit 30 tasks of 300 ms each and log for each task which thread ran it; explain in a comment when the 3rd and 4th worker were created and when the caller ran a task itself
+- Replace the handler with `AbortPolicy` and count the `RejectedExecutionException`s
+- Shut down gracefully: `shutdown()` → `awaitTermination(2 s)` → `shutdownNow()`; print how many tasks were never started
+- Add a `ScheduledExecutorService` heartbeat with `scheduleAtFixedRate` every 500 ms; make the 3rd run throw, observe that the heartbeat stops, then fix it so a failing run does not kill the schedule
