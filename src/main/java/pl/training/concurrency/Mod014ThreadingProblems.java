@@ -84,8 +84,6 @@ public final class Mod014ThreadingProblems {
             }
         });
 
-        Thread.sleep(200);
-
         System.out.println("  T1 state = " + t1.getState() + " (BLOCKED on lockB)");
         System.out.println("  T2 state = " + t2.getState() + " (BLOCKED on lockA)");
         System.out.println("  PID = " + ProcessHandle.current().pid()
