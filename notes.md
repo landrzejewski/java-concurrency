@@ -1,3 +1,5 @@
+# Concurrency
+
 ## Mod001 — Threads
 
 ### Exercise 1.1 — Thread builder and lifecycle logger
@@ -225,12 +227,142 @@ Fetch `profile`, `orders` and `recommendations` concurrently and render a dashbo
 - Print the wall time and compare it with the sum of the branch latencies
 - **Bonus:** sketch in a comment how the same three points look with `StructuredTaskScope` (Mod012 §3, §8)
 
-Extra
+---
 
-Three workers perform three rounds of work together. Nobody may begin round k+1 before all three have finished round k.
+## Mod010 — Parallel Streams
 
-- Create one Phaser with 3 registered parties and start three plain threads with Thread.ofPlatform().name("worker-" + i).start(...)
-- Each worker loops 3 times: sleep a random 100–300 ms, print worker-i finished round k (phase = <phaser.getPhase()>), then call arriveAndAwaitAdvance()
-- The main thread is not registered — it only join()s the three threads. Explain in a comment what would change if you created the phaser with new Phaser(4) and forgot to arrive from main
-- Check in the output that all three round 1 lines appear before any round 2 line, and that getPhase() returns 0, 1, 2 in successive rounds
-- Explain in a comment why arriveAndAwaitAdvance() can be called again in the next round, while a CountDownLatch would have to be recreated for every round
+### Exercise 10.1 — Break-even sweep: when parallel actually pays
+Find, by measurement, where `parallelStream()` starts to win on your machine.
+- Generate `List<LogEntry>` records (`level`, `service`, `latencyMs`) and run the same pipeline shape sequentially and in parallel for a cheap per-element operation (sum one field) and for a costly one (≈40 `Math.log1p`/`Math.sqrt` operations per element)
+- Sweep the input size (1 000, 10 000, 100 000, 1 000 000) for both costs and print a table; warm the JIT up with at least three untimed rounds before every measurement
+- Repeat the cheap case over `IntStream.range(...)`, over a boxed `List<Integer>` and over a `LinkedList<Integer>`; explain in a comment what the spliterator can do in each case and why the `LinkedList` is the worst source
+- Print `ForkJoinPool.commonPool().getParallelism()` and `Runtime.getRuntime().availableProcessors()`, then rerun the costly case inside `new ForkJoinPool(2).submit(...).get()` and compare
+- State in a comment why a single timed run without warm-up systematically flatters whichever variant runs second
+
+### Exercise 10.2 — Correctness traps: stateful lambdas, reduce and encounter order
+Reproduce and then fix the three classic ways a parallel stream produces a wrong answer.
+- Fill an `ArrayList` from `forEach` on a parallel stream of 100 000 elements; run it 10 times and report how many runs lost elements or threw; then fix it with `toList()` and `collect(Collectors.toList())` and explain in a comment the difference between the two results
+- Call `reduce(0, Integer::sum, (a, b) -> a * b)` sequentially and in parallel over the same list and show that only the parallel result changes; explain which clause of the `reduce` contract is violated
+- Concatenate 100 000 strings with `reduce("", String::concat)` and with `Collectors.joining()`; both are correct — measure them and explain in a comment why the legal one is still the wrong tool
+- Compare `findFirst` with `findAny` on a parallel stream, then `forEach` with `forEachOrdered`, then add `.unordered()` and show which guarantee you just waived
+- Explain in a comment what "non-interfering" means for a stream lambda
+
+### Exercise 10.3 — Grouping a log stream: groupingBy vs groupingByConcurrent
+Group 1 000 000 log records by key and count them.
+- Group with `Collectors.groupingBy(key, counting())` and with `groupingByConcurrent` on an `.unordered()` parallel stream; assert both produce identical maps
+- Sweep the key cardinality (5 keys, 500 keys, 2 500 keys) and repeat with an expensive downstream collector (`toList()`); print a comparison table with a warm-up before every measurement
+- Explain in a comment why the concurrent collector usually loses: one shared `ConcurrentHashMap` under contention versus a handful of cheap per-chunk `HashMap` merges
+- Show what `groupingByConcurrent` needs from the stream (the `UNORDERED` characteristic) and what happens to the result ordering
+- Run the winning version inside a dedicated `ForkJoinPool` and confirm from `Thread.currentThread().getName()` inside the classifier that no common-pool worker took part
+
+---
+
+## Mod011 — Virtual Threads
+
+### Exercise 11.1 — The thread-per-request scaling wall
+Submit `N` tasks that each sleep 50 ms (a stand-in for a network call) and compare three executors.
+- Run `newFixedThreadPool(16)`, `newCachedThreadPool()` and `newVirtualThreadPerTaskExecutor()` for `N` = 100, 1 000 and 10 000; print a table of wall times
+- Show that the fixed-pool time is ≈ `N × 50 ms / poolSize` while the virtual-thread time stays flat at ≈ 50 ms
+- Try to start 100 000 platform threads that each sleep 1 s and report what happens (`OutOfMemoryError: unable to create native thread`, or the count at which your machine gives up); then do the same with virtual threads and print how many actually ran
+- Use try-with-resources on every executor and explain in a comment what `close()` does and how it differs from `shutdownNow()`
+- Repeat the 10 000-task run with a CPU-bound task (a tight hashing loop) instead of a sleep and explain in a comment why virtual threads no longer help
+
+### Exercise 11.2 — Carriers, pinning and JFR diagnostics
+Observe how virtual threads are multiplexed onto carrier threads.
+- Start 1 000 virtual threads that each sleep 10 ms; collect the distinct carrier names and show that the count is ≈ `availableProcessors()`
+- There is no public "which carrier am I on" API — scrape it from `Thread.currentThread().toString()` (`VirtualThread[#id]/state@carrier`) and add a comment stating that the format is undocumented and unfit for production
+- Print `Thread.currentThread().isVirtual()` from inside both a virtual and a platform thread, and show that `Thread.ofVirtual().name(...)` names work in a thread dump
+- Record the run with `-XX:StartFlightRecording=filename=vt.jfr` and read the pinning events with `jfr print --events jdk.VirtualThreadPinned vt.jfr`; put the two commands in a comment
+- Explain in a comment why the old `-Djdk.tracePinnedThreads` property is gone and what JEP 491 (Java 24) changed about `synchronized` pinning
+
+### Exercise 11.3 — Migrating a service, and where virtual threads do not help
+Take a small "order service" built on `Executors.newCachedThreadPool()` and migrate it.
+- Swap the executor for `newVirtualThreadPerTaskExecutor()` and show that no other line of the request-handling code changes
+- Audit the `ThreadLocal<SimpleDateFormat>`-style cache in the service: run 100 000 requests and compare retained size (or at least allocation count) before and after; explain in a comment why a per-thread cache that was harmless with 200 platform threads is not harmless with 100 000 virtual ones
+- Replace the read-only part of that context with a `ScopedValue` (Mod013) and keep only the genuinely mutable buffer in a `ThreadLocal`
+- Add a CPU-bound report generator to the same service and keep it on a `newFixedThreadPool(availableProcessors())`; explain in a comment why mixing the two executors is the right answer
+- Write the migration checklist you actually used as a numbered comment at the top of the file
+
+---
+
+## Mod012 — Structured Concurrency
+
+### Exercise 12.1 — Dashboard with StructuredTaskScope
+Rebuild Exercise 9.3 with `StructuredTaskScope` (compile and run with `--enable-preview`).
+- Use the no-argument `StructuredTaskScope.open()` for the heterogeneous fan-out (`String`, `List<String>`, `List<String>`) and read each value from its `Subtask` after `join()`
+- Show that reading `subtask.get()` before `join()` returns throws, and explain in a comment why the API forbids it
+- Add a homogeneous variant with `Joiner.allSuccessfulOrThrow()` over five "shards" and show that `join()` returns the values in **fork** order, not completion order
+- Make one branch fail after 40 ms while another would take 500 ms; catch `FailedException`, print the cause, and show from the wall time that the slow sibling was cancelled rather than awaited
+- Have the slow branch print when it receives its `InterruptedException`, and explain in a comment what a purely CPU-bound branch would have to do instead
+
+### Exercise 12.2 — Races, partial results and a scope deadline
+Query several redundant mirrors under a deadline.
+- Use `Joiner.anySuccessfulOrThrow()` over one slow primary and two fast mirrors; print the winner, the losing subtask's `state()` and `scope.isCancelled()`
+- Make every mirror fail and show what `join()` throws and which failure ends up as the cause
+- Fan out to 10 mirrors with `Joiner.allUntil(predicate)` that stops after the first 3 successes; from the returned `List<Subtask<T>>` print the successful values and the count of `UNAVAILABLE` ones, and explain in a comment why the predicate's state must be thread-safe
+- Configure a scope with `withName("dashboard")` and `withTimeout(Duration.ofMillis(100))` around a 5-second subtask; catch `TimeoutException` and show from the wall time that the deadline bounded the whole fan-out
+- Explain in a comment why a scope deadline is strictly better than a per-future `orTimeout` (Mod009 §6)
+
+### Exercise 12.3 — Custom quorum Joiner
+Implement `QuorumJoiner<T> implements Joiner<T, List<T>>` that returns as soon as `q` sub-tasks have succeeded, and fails if more than `n - q` have failed.
+- Implement `onComplete(Subtask<T>)` (note the Java 26 invariant `Subtask<T>` signature) so that it short-circuits on the `q`-th success and also short-circuits once success has become arithmetically impossible
+- Implement `result()` to return the successful values, and `onTimeout()` so that a timed-out scope yields the partial quorum instead of throwing
+- Remember that `onComplete` runs on the completing sub-task's thread and may be called concurrently, while `onFork` and `onTimeout` run on the owner thread — keep every field thread-safe and say so in a comment
+- Exercise it with 7 replicas (`q = 4`), some slow, some failing; print the values, the number of cancelled replicas and the wall time, and check that the wall time is the 4th-fastest latency
+- Compare in a comment with `allUntil(predicate)` from Exercise 12.2 and say when a custom joiner is worth the code
+
+---
+
+## Mod013 — Scoped Values
+
+### Exercise 13.1 — Request context without parameter passing
+Propagate `currentUser`, `tenantId` and `traceId` through a `controller → service → repository` chain without adding a single parameter.
+- Declare three `static final ScopedValue<String>` keys and bind all three with a chained `where(...).where(...).where(...)`
+- Read them from the repository, three call levels down, and print them
+- Show that `get()` outside the binding throws `NoSuchElementException`, then demonstrate `isBound()`, `orElse("anonymous")` and `orElseThrow(MyException::new)`
+- Use the value-returning `call(...)` form for a method that throws a checked exception and show that the exception is not wrapped
+- Explain in a comment why a `ScopedValue` is easier to audit than a `ThreadLocal` holding the same data
+
+### Exercise 13.2 — Rebinding and inheritance into a scope
+Show how bindings nest and how they cross into sub-tasks.
+- Bind `CURRENT_USER` to `"alice"`, then run an audit-log call inside a nested `where(CURRENT_USER, "system")` binding; print the value before, inside and after and confirm the outer value is restored
+- Inside a `TRACE_ID` binding, open a `StructuredTaskScope` and fork three sub-tasks; each prints the inherited trace id and its own thread — no setter, no parameter passing
+- Rebind `TRACE_ID` inside one sub-task and show that the change is invisible to its siblings and to the parent
+- Build the same propagation with an `InheritableThreadLocal`, then have the parent change its value **after** forking, and show that the children keep the stale copy
+- Explain in a comment the structural difference: `InheritableThreadLocal` copies the parent map into every child, a scoped-value binding is one immutable node shared by parent and children
+
+### Exercise 13.3 — Migrating a ThreadLocal filter chain
+You are given a servlet-style filter chain that does `USER.set(request.user())` at the top and `USER.remove()` in a `finally` block.
+- Reproduce the leak: drop the `remove()`, run the chain on a **pooled** platform-thread executor and show that the next request on the same worker sees the previous user's value
+- Migrate the chain to `ScopedValue.where(USER, request.user()).run(...)` and show that the same test can no longer leak, with no `try`/`finally` anywhere
+- On `newVirtualThreadPerTaskExecutor()`, show the deterministic difference in **lifetime**: after the request body returns, `USER.get()` still answers until someone calls `remove()`, while `USER.isBound()` is already `false` once `run()` has returned. Explain in a comment why this matters more once the thread *is* the request (Mod011 §5), and why comparing `totalMemory() - freeMemory()` between the two versions is not evidence
+- Keep one genuinely mutable per-request value (a reusable `StringBuilder`) in a `ThreadLocal` and explain in a comment why `ScopedValue` cannot replace it
+- Write the before/after code pair as a comment and list the three properties the migrated version gains (exception safety, immutability, no cross-request leakage)
+
+---
+
+## Mod014 — Threading Problems
+
+### Exercise 14.1 — Deadlock: reproduce, detect, prevent
+Take two locks in opposite order from two threads and work through the whole life cycle of the bug.
+- Reproduce the deadlock with `synchronized`; make both threads **daemon** so `main` can keep running, and print each thread's `getState()` (expect `BLOCKED`)
+- Detect it from inside the JVM with `ManagementFactory.getThreadMXBean().findDeadlockedThreads()` and print the participating thread names and the monitors they wait on
+- Print the PID and, in a comment, the `jstack <pid>` / `kill -3 <pid>` commands and the exact line `jstack` prints for a cycle
+- Fix it with the lock-ordering rule: sort the two locks by `System.identityHashCode` before acquiring, with a tie-breaker mutex for the (rare) hash collision; run 10 000 opposite-direction transfers and show that none deadlock
+- Explain in a comment why a thread blocked on entering a `synchronized` block cannot be interrupted out of it, and what `tryLock(timeout)` (Mod004 §5) buys you instead
+
+### Exercise 14.2 — Livelock and starvation under measurement
+Turn two qualitative problems into numbers.
+- Implement the two-diners-one-spoon livelock: both diners always defer to a still-hungry partner. Time-box the run to 300 ms and report meals eaten and courtesy hand-offs performed — expect 0 meals and a very large hand-off count
+- Print the thread states during the livelock and explain in a comment why `RUNNABLE` makes livelock harder to spot than deadlock
+- Break the symmetry (defer only on a coin flip) and show that both diners now eat almost immediately; explain in a comment why randomised jitter is also the cure for two workers retrying a `tryLock` pair after the same back-off
+- Measure starvation: six threads contend for a `ReentrantLock` for a fixed 300 ms window, once unfair and once fair. Print total acquisitions, min, max and the max/min ratio per worker
+- Explain in a comment why a fixed iteration count per worker instead of a fixed time window would hide the effect entirely, and state the trade-off fairness buys
+
+### Exercise 14.3 — Race-condition checklist and testing concurrent code
+Work through the four recurring race shapes and then try to actually catch one.
+- For each shape — read-modify-write, check-then-act, get-then-put on a counter, compound state across two fields — write a broken version, run it with 8 threads until it visibly breaks, and print the size of the error
+- Fix each one with the idiomatic tool: `AtomicLong`, `ConcurrentHashMap.putIfAbsent`/`computeIfAbsent`, `merge(k, 1L, Long::sum)` and a single lock around the whole compound update
+- Write a plain JUnit test for the read-modify-write case and explain in a comment why it can observe a lost update but can never prove that the fixed version is race-free
+- Write a jcstress test for the same counter, modelled on `src/jcstress/java/pl/training/concurrency/CounterTest.java`, and run it with `./mvnw -P jcstress package` followed by the `java -jar target/jcstress.jar -t …` command; put both commands in a comment
+- Explain in a comment why the JVM offers no priority inheritance and why thread priorities must never carry correctness
